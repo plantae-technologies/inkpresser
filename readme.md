@@ -8,6 +8,8 @@ We use `node-gyp` for building native bindings during installation. Ensure your 
 
 For detailed instructions, refer to the [node-gyp documentation](https://github.com/nodejs/node-gyp).
 
+> Dependency: libcups2-dev
+
 ```bash
 npm install @plantae-tech/inkpresser
 ```
