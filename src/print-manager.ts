@@ -1,5 +1,5 @@
 import bindings from './bindings';
-import { PrinterInfo } from './types';
+import type { PrinterInfo } from './types';
 import { Printer } from './printer';
 
 export class PrintManager {

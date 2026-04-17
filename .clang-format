@@ -1,0 +1,21 @@
+---
+BasedOnStyle: LLVM
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 80
+BreakBeforeBraces: Allman
+AccessModifierOffset: -4
+AlignAfterOpenBracket: BlockIndent
+BinPackParameters: false
+BinPackArguments: false
+IndentCaseLabels: false
+AlignConsecutiveDeclarations: false
+AlignConsecutiveAssignments: false
+AlignTrailingComments: false
+AlignOperands: DontAlign
+BreakBeforeTernaryOperators: true
+AllowShortCaseLabelsOnASingleLine: false
+SpaceBeforeRangeBasedForLoopColon: true
+PointerAlignment: Left
+ReferenceAlignment: Left

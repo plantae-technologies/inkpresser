@@ -1,4 +1,4 @@
-import { JobInfo, PrinterInfo } from './types';
+import type { JobInfo, PrinterInfo } from './types';
 import bindings from './bindings';
 import { Job } from './job';
 

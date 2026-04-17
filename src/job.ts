@@ -1,5 +1,5 @@
 import { Printer } from './printer';
-import { JobInfo } from './types';
+import type { JobInfo } from './types';
 import bindings from './bindings';
 
 export class Job {

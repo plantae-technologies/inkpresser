@@ -1,0 +1,105 @@
+name: NPM Publish
+
+on:
+  repository_dispatch:
+    types: [trigger-npm-publish]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to publish (e.g. v1.2.0). If empty, uses the latest git tag.'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  resolve-tag:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.value }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Resolve tag
+        id: tag
+        run: |
+          TAG="${{ github.event.client_payload.tag }}"
+          if [ -z "$TAG" ]; then TAG="${{ inputs.tag }}"; fi
+          if [ -z "$TAG" ]; then TAG=$(git describe --tags --abbrev=0); fi
+          echo "value=$TAG" >> $GITHUB_OUTPUT
+
+  build-native:
+    needs: resolve-tag
+    name: Build native (${{ matrix.platform }}-${{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            arch: x64
+          - os: windows-latest
+            platform: win32
+            arch: x64
+          - os: macos-13
+            platform: darwin
+            arch: x64
+          - os: macos-latest
+            platform: darwin
+            arch: arm64
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve-tag.outputs.tag }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install libcups (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get install -y libcups2-dev
+
+      - run: npm ci --ignore-scripts
+
+      - run: npx prebuildify --napi --strip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: addon-${{ matrix.platform }}-${{ matrix.arch }}
+          path: prebuilds/
+
+  publish:
+    needs: [resolve-tag, build-native]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve-tag.outputs.tag }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: https://registry.npmjs.org
+
+      - run: npm ci --ignore-scripts
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: addon-*
+          path: prebuilds/
+          merge-multiple: true
+
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build:ts
+
+      - run: npm publish --access public --tag latest
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

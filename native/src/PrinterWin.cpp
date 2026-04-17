@@ -1,15 +1,24 @@
 #include "PrinterWin.h"
-#include <windows.h>
-#include <vector>
-#include <string>
+#include "PrinterError.h"
 #include <stdexcept>
+#include <string>
+#include <vector>
+#include <windows.h>
 
 std::vector<PrinterInfo> PrinterWin::getPrinters()
 {
     DWORD needed = 0, returned = 0;
 
     // Query the required size of the buffer
-    EnumPrinters(PRINTER_ENUM_LOCAL | PRINTER_ENUM_CONNECTIONS, nullptr, 2, nullptr, 0, &needed, &returned);
+    EnumPrinters(
+        PRINTER_ENUM_LOCAL | PRINTER_ENUM_CONNECTIONS,
+        nullptr,
+        2,
+        nullptr,
+        0,
+        &needed,
+        &returned
+    );
 
     // No printers found
     if (needed == 0)
@@ -19,10 +28,22 @@ std::vector<PrinterInfo> PrinterWin::getPrinters()
 
     // Allocate buffer and retrieve printer information
     std::vector<BYTE> buffer(needed);
-    auto printerInfo = reinterpret_cast<PRINTER_INFO_2 *>(buffer.data());
-    if (!EnumPrinters(PRINTER_ENUM_LOCAL | PRINTER_ENUM_CONNECTIONS, nullptr, 2, buffer.data(), needed, &needed, &returned))
+    auto printerInfo = reinterpret_cast<PRINTER_INFO_2*>(buffer.data());
+    if (!EnumPrinters(
+            PRINTER_ENUM_LOCAL | PRINTER_ENUM_CONNECTIONS,
+            nullptr,
+            2,
+            buffer.data(),
+            needed,
+            &needed,
+            &returned
+        ))
     {
-        throw std::runtime_error("Failed to enumerate printers.");
+        throw PrinterError(
+            PrinterErrorCode::PRINTER_ENUM_FAILED,
+            "Failed to enumerate printers.",
+            std::to_string(GetLastError())
+        );
     }
 
     std::string defaultPrinter = getDefaultPrinterName().value_or("");
@@ -55,41 +76,64 @@ std::optional<std::string> PrinterWin::getDefaultPrinterName()
     std::vector<char> buffer(bufferSize);
     if (!GetDefaultPrinterA(buffer.data(), &bufferSize))
     {
-        throw std::runtime_error("Failed to get default printer: " + std::to_string(GetLastError()));
+        throw PrinterError(
+            PrinterErrorCode::DEFAULT_PRINTER_LOOKUP_FAILED,
+            "Failed to get default printer.",
+            std::to_string(GetLastError())
+        );
     }
 
     return std::optional<std::string>(buffer.data());
 }
 
-int PrinterWin::printRaw(const std::vector<uint8_t> &data, const std::string &documentName, const std::optional<std::string> &printer)
+int PrinterWin::printRaw(
+    const std::vector<uint8_t>& data,
+    const std::string& documentName,
+    const std::optional<std::string>& printer
+)
 {
     // Checks if a printer was specified; otherwise, uses the default one
-    std::optional<std::string> targetPrinter = printer ? printer : getDefaultPrinterName();
+    std::optional<std::string> targetPrinter =
+        printer ? printer : getDefaultPrinterName();
     if (!targetPrinter)
     {
-        throw std::runtime_error("No printer specified and no default printer is set.");
+        throw PrinterError(
+            PrinterErrorCode::NO_PRINTER_SPECIFIED,
+            "No printer specified and no default printer is set."
+        );
     }
     std::string resolvedPrinter = *targetPrinter;
 
     // Open the printer
     HANDLE hPrinter = nullptr;
-    if (!OpenPrinterA(const_cast<char *>(resolvedPrinter.c_str()), &hPrinter, nullptr))
+    if (!OpenPrinterA(
+            const_cast<char*>(resolvedPrinter.c_str()), &hPrinter, nullptr
+        ))
     {
-        throw std::runtime_error("Failed to open printer: " + resolvedPrinter);
+        throw PrinterError(
+            PrinterErrorCode::PRINTER_OPEN_FAILED,
+            "Failed to open printer.",
+            resolvedPrinter
+        );
     }
 
     // Configure the print job
     DOC_INFO_1A docInfo = {};
-    docInfo.pDocName = const_cast<char *>(documentName.c_str());
+    docInfo.pDocName = const_cast<char*>(documentName.c_str());
     docInfo.pOutputFile = nullptr;
-    docInfo.pDatatype = const_cast<char *>("RAW");
+    docInfo.pDatatype = const_cast<char*>("RAW");
 
     // Start the print job
-    DWORD jobId = StartDocPrinterA(hPrinter, 1, reinterpret_cast<BYTE *>(&docInfo));
+    DWORD jobId =
+        StartDocPrinterA(hPrinter, 1, reinterpret_cast<BYTE*>(&docInfo));
     if (jobId == 0)
     {
         ClosePrinter(hPrinter);
-        throw std::runtime_error("Failed to start print job on printer: " + resolvedPrinter);
+        throw PrinterError(
+            PrinterErrorCode::JOB_CREATION_FAILED,
+            "Failed to start print job.",
+            resolvedPrinter
+        );
     }
 
     // Start the print page
@@ -97,17 +141,30 @@ int PrinterWin::printRaw(const std::vector<uint8_t> &data, const std::string &do
     {
         EndDocPrinter(hPrinter);
         ClosePrinter(hPrinter);
-        throw std::runtime_error("Failed to start printer page on printer: " + resolvedPrinter);
+        throw PrinterError(
+            PrinterErrorCode::PAGE_START_FAILED,
+            "Failed to start printer page.",
+            resolvedPrinter
+        );
     }
 
     // Write data to the printer
     DWORD bytesWritten = 0;
-    if (!WritePrinter(hPrinter, const_cast<uint8_t *>(data.data()), static_cast<DWORD>(data.size()), &bytesWritten))
+    if (!WritePrinter(
+            hPrinter,
+            const_cast<uint8_t*>(data.data()),
+            static_cast<DWORD>(data.size()),
+            &bytesWritten
+        ))
     {
         EndPagePrinter(hPrinter);
         EndDocPrinter(hPrinter);
         ClosePrinter(hPrinter);
-        throw std::runtime_error("Failed to write data to printer: " + resolvedPrinter);
+        throw PrinterError(
+            PrinterErrorCode::DATA_WRITE_FAILED,
+            "Failed to write data to printer.",
+            resolvedPrinter
+        );
     }
 
     // Finish resources
@@ -118,20 +175,31 @@ int PrinterWin::printRaw(const std::vector<uint8_t> &data, const std::string &do
     return jobId;
 }
 
-std::vector<JobInfo> PrinterWin::getJobs(const std::optional<std::string> &printer)
+std::vector<JobInfo>
+PrinterWin::getJobs(const std::optional<std::string>& printer)
 {
     // Checks if a printer was specified; otherwise, uses the default one
-    std::optional<std::string> targetPrinter = printer ? printer : getDefaultPrinterName();
+    std::optional<std::string> targetPrinter =
+        printer ? printer : getDefaultPrinterName();
     if (!targetPrinter)
     {
-        throw std::runtime_error("No printer specified and no default printer is set.");
+        throw PrinterError(
+            PrinterErrorCode::NO_PRINTER_SPECIFIED,
+            "No printer specified and no default printer is set."
+        );
     }
     std::string resolvedPrinter = *targetPrinter;
 
     HANDLE hPrinter = nullptr;
-    if (!OpenPrinterA(const_cast<char *>(resolvedPrinter.c_str()), &hPrinter, nullptr))
+    if (!OpenPrinterA(
+            const_cast<char*>(resolvedPrinter.c_str()), &hPrinter, nullptr
+        ))
     {
-        throw std::runtime_error("Failed to open printer: " + resolvedPrinter);
+        throw PrinterError(
+            PrinterErrorCode::PRINTER_OPEN_FAILED,
+            "Failed to open printer.",
+            resolvedPrinter
+        );
     }
 
     DWORD needed = 0, returned = 0;
@@ -144,13 +212,26 @@ std::vector<JobInfo> PrinterWin::getJobs(const std::optional<std::string> &print
     }
 
     std::vector<BYTE> buffer(needed);
-    if (!EnumJobsA(hPrinter, 0, 0xFFFFFFFF, 1, buffer.data(), needed, &needed, &returned))
+    if (!EnumJobsA(
+            hPrinter,
+            0,
+            0xFFFFFFFF,
+            1,
+            buffer.data(),
+            needed,
+            &needed,
+            &returned
+        ))
     {
         ClosePrinter(hPrinter);
-        throw std::runtime_error("Failed to enumerate jobs: " + std::to_string(GetLastError()));
+        throw PrinterError(
+            PrinterErrorCode::JOB_ENUM_FAILED,
+            "Failed to enumerate jobs.",
+            std::to_string(GetLastError())
+        );
     }
 
-    auto jobInfo = reinterpret_cast<JOB_INFO_1A *>(buffer.data());
+    auto jobInfo = reinterpret_cast<JOB_INFO_1A*>(buffer.data());
     std::vector<JobInfo> jobList;
     for (DWORD i = 0; i < returned; ++i)
     {
@@ -161,21 +242,32 @@ std::vector<JobInfo> PrinterWin::getJobs(const std::optional<std::string> &print
     return jobList;
 }
 
-std::optional<JobInfo> PrinterWin::getJob(int jobId, const std::optional<std::string> &printer)
+std::optional<JobInfo>
+PrinterWin::getJob(int jobId, const std::optional<std::string>& printer)
 {
     // Checks if a printer was specified; otherwise, uses the default one
-    std::optional<std::string> targetPrinter = printer ? printer : getDefaultPrinterName();
+    std::optional<std::string> targetPrinter =
+        printer ? printer : getDefaultPrinterName();
     if (!targetPrinter)
     {
-        throw std::runtime_error("No printer specified and no default printer is set.");
+        throw PrinterError(
+            PrinterErrorCode::NO_PRINTER_SPECIFIED,
+            "No printer specified and no default printer is set."
+        );
     }
     std::string resolvedPrinter = *targetPrinter;
 
     // Open the printer
     HANDLE hPrinter = nullptr;
-    if (!OpenPrinterA(const_cast<char *>(resolvedPrinter.c_str()), &hPrinter, nullptr))
+    if (!OpenPrinterA(
+            const_cast<char*>(resolvedPrinter.c_str()), &hPrinter, nullptr
+        ))
     {
-        throw std::runtime_error("Failed to open printer: " + resolvedPrinter);
+        throw PrinterError(
+            PrinterErrorCode::PRINTER_OPEN_FAILED,
+            "Failed to open printer.",
+            resolvedPrinter
+        );
     }
 
     // Determine the required buffer size for job information
@@ -197,7 +289,7 @@ std::optional<JobInfo> PrinterWin::getJob(int jobId, const std::optional<std::st
     }
 
     // Parse the job information
-    auto jobInfo = reinterpret_cast<JOB_INFO_1A *>(buffer.data());
+    auto jobInfo = reinterpret_cast<JOB_INFO_1A*>(buffer.data());
     JobInfo job = parseJob(*jobInfo);
 
     // Close the printer
@@ -206,28 +298,42 @@ std::optional<JobInfo> PrinterWin::getJob(int jobId, const std::optional<std::st
     return job;
 }
 
-bool PrinterWin::cancelJob(int jobId, const std::optional<std::string> &printer)
+bool PrinterWin::cancelJob(int jobId, const std::optional<std::string>& printer)
 {
     // Checks if a printer was specified; otherwise, uses the default one
-    std::optional<std::string> targetPrinter = printer ? printer : getDefaultPrinterName();
+    std::optional<std::string> targetPrinter =
+        printer ? printer : getDefaultPrinterName();
     if (!targetPrinter)
     {
-        throw std::runtime_error("No printer specified and no default printer is set.");
+        throw PrinterError(
+            PrinterErrorCode::NO_PRINTER_SPECIFIED,
+            "No printer specified and no default printer is set."
+        );
     }
     std::string resolvedPrinter = *targetPrinter;
 
     // Open the printer
     HANDLE hPrinter = nullptr;
-    if (!OpenPrinterA(const_cast<char *>(resolvedPrinter.c_str()), &hPrinter, nullptr))
+    if (!OpenPrinterA(
+            const_cast<char*>(resolvedPrinter.c_str()), &hPrinter, nullptr
+        ))
     {
-        throw std::runtime_error("Failed to open printer: " + resolvedPrinter);
+        throw PrinterError(
+            PrinterErrorCode::PRINTER_OPEN_FAILED,
+            "Failed to open printer.",
+            resolvedPrinter
+        );
     }
 
     // Try to cancel job
     if (!SetJobA(hPrinter, jobId, 0, nullptr, JOB_CONTROL_CANCEL))
     {
         ClosePrinter(hPrinter);
-        throw std::runtime_error("Failed to cancel job: " + std::to_string(GetLastError()));
+        throw PrinterError(
+            PrinterErrorCode::JOB_CANCEL_FAILED,
+            "Failed to cancel job.",
+            std::to_string(GetLastError())
+        );
     }
 
     // Close the printer
@@ -235,7 +341,7 @@ bool PrinterWin::cancelJob(int jobId, const std::optional<std::string> &printer)
     return true;
 }
 
-PrinterInfo PrinterWin::parsePrinter(const PRINTER_INFO_2 &printerInfo)
+PrinterInfo PrinterWin::parsePrinter(const PRINTER_INFO_2& printerInfo)
 {
     PrinterInfo info;
     info.name = printerInfo.pPrinterName ? printerInfo.pPrinterName : "";
@@ -254,7 +360,8 @@ JobStatus PrinterWin::parseJobStatus(DWORD status)
         return JobStatus::COMPLETED;
     if (status & JOB_STATUS_DELETED)
         return JobStatus::CANCELED;
-    if (status & JOB_STATUS_ERROR || status & JOB_STATUS_BLOCKED_DEVQ || status & JOB_STATUS_USER_INTERVENTION)
+    if (status & JOB_STATUS_ERROR || status & JOB_STATUS_BLOCKED_DEVQ ||
+        status & JOB_STATUS_USER_INTERVENTION)
         return JobStatus::JOB_ERROR;
     if (status & JOB_STATUS_OFFLINE || status & JOB_STATUS_PAPEROUT)
         return JobStatus::WAITING_FOR_DEVICE;
@@ -262,7 +369,7 @@ JobStatus PrinterWin::parseJobStatus(DWORD status)
     return JobStatus::UNKNOWN;
 }
 
-JobInfo PrinterWin::parseJob(const JOB_INFO_1A &jobInfo)
+JobInfo PrinterWin::parseJob(const JOB_INFO_1A& jobInfo)
 {
     JobInfo job;
     job.id = jobInfo.JobId;

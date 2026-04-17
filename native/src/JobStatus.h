@@ -3,7 +3,8 @@
 
 #include <string>
 
-enum class JobStatus {
+enum class JobStatus
+{
     PENDING,
     PROCESSING,
     PAUSED,
@@ -14,16 +15,26 @@ enum class JobStatus {
     UNKNOWN
 };
 
-inline std::string to_string(JobStatus status) {
-    switch (status) {
-        case JobStatus::PENDING: return "pending";
-        case JobStatus::PROCESSING: return "processing";
-        case JobStatus::PAUSED: return "paused";
-        case JobStatus::COMPLETED: return "completed";
-        case JobStatus::CANCELED: return "canceled";
-        case JobStatus::JOB_ERROR: return "error";
-        case JobStatus::WAITING_FOR_DEVICE: return "waiting for device";
-        default: return "unknown";
+inline std::string to_string(JobStatus status)
+{
+    switch (status)
+    {
+    case JobStatus::PENDING:
+        return "pending";
+    case JobStatus::PROCESSING:
+        return "processing";
+    case JobStatus::PAUSED:
+        return "paused";
+    case JobStatus::COMPLETED:
+        return "completed";
+    case JobStatus::CANCELED:
+        return "canceled";
+    case JobStatus::JOB_ERROR:
+        return "error";
+    case JobStatus::WAITING_FOR_DEVICE:
+        return "waiting for device";
+    default:
+        return "unknown";
     }
 }
 

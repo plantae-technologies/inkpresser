@@ -3,7 +3,8 @@
 
 #include <string>
 
-struct JobInfo {
+struct JobInfo
+{
     int id;
     std::string printer;
     std::string document;

@@ -21,14 +21,15 @@ describe('PrintManager', () => {
     it('should return a list of "Printer" instances', async () => {
         const printManager = new PrintManager();
         const printers = await printManager.getPrinters();
+        const [printer1, printer2] = printers;
 
-        expect(printers[0]).toBeInstanceOf(Printer);
-        expect(printers[0].name).toBe('Printer1');
-        expect(printers[0].isDefault).toBe(true);
+        expect(printer1).toBeInstanceOf(Printer);
+        expect(printer1?.name).toBe('Printer1');
+        expect(printer1?.isDefault).toBe(true);
 
-        expect(printers[1]).toBeInstanceOf(Printer);
-        expect(printers[1].name).toBe('Printer2');
-        expect(printers[1].isDefault).toBe(false);
+        expect(printer2).toBeInstanceOf(Printer);
+        expect(printer2?.name).toBe('Printer2');
+        expect(printer2?.isDefault).toBe(false);
     });
 
     it('should return the default printer as an instance of "Printer"', async () => {
