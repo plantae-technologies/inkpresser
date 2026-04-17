@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.1](https://github.com/plantae-technologies/inkpresser/compare/v1.2.0...v1.2.1) (2026-04-17)
+
+
+### Bug Fixes
+
+* enable C++ exceptions on macOS (xcode_settings) ([e799096](https://github.com/plantae-technologies/inkpresser/commit/e799096fa58aa49c543c138f821a8dc09cf2c12d))
+
 ## [1.2.0](https://github.com/plantae-technologies/inkpresser/compare/v1.1.1...v1.2.0) (2026-04-17)
 
 
