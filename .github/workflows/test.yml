@@ -1,0 +1,75 @@
+name: Test
+
+on:
+  push:
+    branches: [master, fix/**]
+  pull_request:
+    branches: [master]
+
+jobs:
+  build-native:
+    name: Build (${{ matrix.platform }}-${{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            arch: x64
+          - os: windows-latest
+            platform: win32
+            arch: x64
+          - os: macos-latest
+            platform: darwin
+            arch: x64
+          - os: macos-latest
+            platform: darwin
+            arch: arm64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install libcups (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get install -y libcups2-dev
+
+      - run: npm ci --ignore-scripts
+
+      - run: npx prebuildify --napi --strip --arch ${{ matrix.arch }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: prebuild-${{ matrix.platform }}-${{ matrix.arch }}
+          path: prebuilds/
+
+  unit-tests:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    needs: build-native
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - run: npm ci --ignore-scripts
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: prebuild-linux-x64
+          path: prebuilds/
+
+      - run: npm run typecheck
+      - run: npm test
+
+  integration-tests:
+    needs: build-native
+    uses: ./.github/workflows/integration.yml
+    with:
+      artifact-prefix: prebuild

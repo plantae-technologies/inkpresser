@@ -1,0 +1,87 @@
+name: Integration Tests
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: 'Git ref to checkout (branch, tag, SHA)'
+        required: false
+        type: string
+        default: ''
+      artifact-prefix:
+        description: 'Prefix for prebuild artifact names'
+        required: true
+        type: string
+
+jobs:
+  integration:
+    name: Integration (${{ matrix.platform }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            arch: x64
+          - os: macos-latest
+            platform: darwin
+            arch: arm64
+          - os: windows-latest
+            platform: win32
+            arch: x64
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - run: npm ci --ignore-scripts
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.artifact-prefix }}-${{ matrix.platform }}-${{ matrix.arch }}
+          path: prebuilds/
+
+      - name: Setup virtual printer (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get install -y cups printer-driver-cups-pdf
+          echo "FileDevice Yes" | sudo tee -a /etc/cups/cups-files.conf
+          sudo systemctl restart cups
+          sudo lpadmin -p test-printer -E -v file:///tmp/print-output -m drv:///sample.drv/generic.ppd
+          sudo cupsenable test-printer
+          sudo cupsaccept test-printer
+          sudo lpadmin -d test-printer
+
+      - name: Setup virtual printer (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          echo "FileDevice Yes" | sudo tee -a /private/etc/cups/cups-files.conf
+          sudo launchctl stop org.cups.cupsd
+          sudo launchctl start org.cups.cupsd
+          sleep 2
+          sudo lpadmin -p test-printer -E -v file:///tmp/print-output -m drv:///sample.drv/generic.ppd
+          sudo cupsenable test-printer
+          sudo cupsaccept test-printer
+          sudo lpadmin -d test-printer
+
+      - name: Setup virtual printer (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path C:\temp -Force
+          $drivers = Get-PrinterDriver | Select-Object -ExpandProperty Name
+          $driver = $drivers | Where-Object { $_ -match 'Generic|Text|XPS|PDF' } | Select-Object -First 1
+          if (-not $driver) { $driver = $drivers[0] }
+          Add-PrinterPort -Name "C:\temp\print-output.txt"
+          Add-Printer -Name "test-printer" -DriverName $driver -PortName "C:\temp\print-output.txt"
+
+      - name: Run integration tests
+        run: npm run test:integration
+        env:
+          INKPRESSER_TEST_PRINTER: test-printer

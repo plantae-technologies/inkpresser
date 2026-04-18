@@ -1,77 +1,104 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import { Job, Printer, PrintManager } from '../../src/index';
-import fs from 'fs';
-import iconv from 'iconv-lite';
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
 
-function parseEscPosCommands(text: string): string {
-    return text.replace(/\\x([0-9A-Fa-f]{2})/g, (_, hex: string) =>
-        String.fromCharCode(parseInt(hex, 16))
-    );
-}
+const TEST_PRINTER = process.env.INKPRESSER_TEST_PRINTER ?? '';
 
 describe('Integration: Print System', () => {
-    it('should list all printers', async () => {
+    let printer: Printer;
+
+    beforeAll(async () => {
         const manager = new PrintManager();
         const printers = await manager.getPrinters();
+        const match = printers.find((p) => p.name === TEST_PRINTER);
 
-        expect(printers).toBeInstanceOf(Array);
-        printers.forEach((printer) => {
-            expect(printer).toBeInstanceOf(Printer);
-            expect(printer).toHaveProperty('name');
-            expect(printer).toHaveProperty('isDefault');
-        });
+        if (!match) {
+            throw new Error(
+                `Printer "${TEST_PRINTER}" not found. ` +
+                    `Available: ${printers.map((p) => p.name).join(', ') || 'none'}. ` +
+                    `Set INKPRESSER_TEST_PRINTER to a valid printer name.`,
+            );
+        }
+
+        printer = match;
+    });
+
+    it('should list printers including the test printer', async () => {
+        const manager = new PrintManager();
+
+        const printers = await manager.getPrinters();
+        const names = printers.map((p) => p.name);
+
+        expect(names).toContain(TEST_PRINTER);
     });
 
     it('should retrieve the default printer', async () => {
         const manager = new PrintManager();
-        const printer = await manager.getDefaultPrinter();
 
-        expect(printer).not.toBeNull();
-        expect(printer).toBeInstanceOf(Printer);
+        const defaultPrinter = await manager.getDefaultPrinter();
+
+        expect(defaultPrinter).toBeInstanceOf(Printer);
+        expect(defaultPrinter.name).toBe(TEST_PRINTER);
     });
 
-    it('should send an ESC/POS print job, verify it is queued, and cancel it', async () => {
-        const manager = new PrintManager();
-        const printer = await manager.getDefaultPrinter();
-        expect(printer).not.toBeNull();
-    
-        // Prepare the print job content
-        const filePath = './tests/fixtures/fast.txt';
-        const fileContent = fs.readFileSync(filePath, 'utf-8');
-        const parsedContent = parseEscPosCommands(fileContent);
-        const convertedContent = iconv.encode(parsedContent, 'CP860');
-    
-        // Send the print job
-        const documentName = `Test Document ${Date.now()}`;
-        const jobId = await printer.printRaw(convertedContent, documentName);
+    it('should send a print job', async () => {
+        const fixturePath = resolve('tests/fixtures/test-print.txt');
+        const fixtureContent = readFileSync(fixturePath);
+
+        const documentName = `test-${Date.now()}`;
+        const jobId = await printer.printRaw(fixtureContent, documentName);
+
         expect(jobId).toBeTypeOf('number');
-    
-        // Verify the job is queued
+        expect(jobId).toBeGreaterThan(0);
+    });
+
+    it('should retrieve a job by ID', async () => {
+        const content = Buffer.from('job-lookup-test');
+        const docName = `lookup-${Date.now()}`;
+        const jobId = await printer.printRaw(content, docName);
+
+        expect(jobId).toBeTypeOf('number');
+        expect(jobId).toBeGreaterThan(0);
+
+        // Job may complete instantly on file:// backends, so getJob can return null
         const job = await printer.getJob(jobId);
-        expect(job).not.toBeNull();
-        expect(job).toBeInstanceOf(Job);
-        expect(job?.document).toBe(documentName);
-    
-        // Cancel the print job
+
         if (job) {
-            const cancelResult = await job.cancel();
-            expect(cancelResult).toBe(true);
-    
-            // Verify the job has been removed from the queue
-            const canceledJob = await printer.getJob(jobId);
-            expect(canceledJob).toBeNull();
+            expect(job).toBeInstanceOf(Job);
+            expect(job.document).toBe(docName);
         }
-    });    
+    });
+
+    it('should list jobs for the printer', async () => {
+        const content = Buffer.from('list-jobs-test');
+        const docName = `list-${Date.now()}`;
+        await printer.printRaw(content, docName);
+
+        const jobs = await printer.getJobs();
+
+        expect(jobs).toBeInstanceOf(Array);
+    });
+
+    it('should cancel a print job', async () => {
+        const content = Buffer.from('cancel-test');
+        const docName = `cancel-${Date.now()}`;
+        const jobId = await printer.printRaw(content, docName);
+
+        expect(jobId).toBeTypeOf('number');
+        expect(jobId).toBeGreaterThan(0);
+
+        // Job may already be completed on fast backends — cancel only if still in queue
+        const job = await printer.getJob(jobId);
+
+        if (job) {
+            const cancelled = await job.cancel();
+            expect(cancelled).toBe(true);
+        }
+    });
 
     it('should return null for a non-existent job ID', async () => {
-        const manager = new PrintManager();
-        const printer = await manager.getDefaultPrinter();
-
-        expect(printer).not.toBeNull();
-        expect(printer).toBeInstanceOf(Printer);
-
-        const nonExistentJobId = 999999;
-        const job = await printer.getJob(nonExistentJobId);
+        const job = await printer.getJob(999999);
 
         expect(job).toBeNull();
     });

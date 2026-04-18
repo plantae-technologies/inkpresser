@@ -46,7 +46,7 @@ jobs:
           - os: windows-latest
             platform: win32
             arch: x64
-          - os: macos-13
+          - os: macos-latest
             platform: darwin
             arch: x64
           - os: macos-latest
@@ -68,15 +68,22 @@ jobs:
 
       - run: npm ci --ignore-scripts
 
-      - run: npx prebuildify --napi --strip
+      - run: npx prebuildify --napi --strip --arch ${{ matrix.arch }}
 
       - uses: actions/upload-artifact@v4
         with:
           name: addon-${{ matrix.platform }}-${{ matrix.arch }}
           path: prebuilds/
 
-  publish:
+  integration-tests:
     needs: [resolve-tag, build-native]
+    uses: ./.github/workflows/integration.yml
+    with:
+      ref: ${{ needs.resolve-tag.outputs.tag }}
+      artifact-prefix: addon
+
+  publish:
+    needs: [resolve-tag, build-native, integration-tests]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
