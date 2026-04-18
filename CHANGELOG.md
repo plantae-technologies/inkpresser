@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.3](https://github.com/plantae-technologies/inkpresser/compare/v1.2.2...v1.2.3) (2026-04-18)
+
+
+### Bug Fixes
+
+* correct package description, keywords and repository URL ([5b5ce80](https://github.com/plantae-technologies/inkpresser/commit/5b5ce8065c70cfac6618475c271adf4a36a96da8))
+
 ## [1.2.2](https://github.com/plantae-technologies/inkpresser/compare/v1.2.1...v1.2.2) (2026-04-18)
 
 
