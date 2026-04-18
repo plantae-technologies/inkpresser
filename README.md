@@ -1,6 +1,6 @@
 # 🖨️ InkPresser
 
-InkPresser is a native Node.js library for managing printers and print jobs. It provides seamless integration with Node.js and Electron applications, supporting multiple operating systems.
+InkPresser is a native Node.js library for managing printers and raw printing — including ESC/POS, thermal, and dot-matrix — in Node.js and Electron applications.
 
 ## 📋 Supported Platforms
 

@@ -1,7 +1,7 @@
 {
   "name": "@plantae-tech/inkpresser",
   "version": "1.2.2",
-  "description": "A Node.js library for managing printers and print jobs with Electron integration.",
+  "description": "Native Node.js library for managing printers and raw printing, including ESC/POS, thermal, and dot-matrix, in Node.js and Electron.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -25,13 +25,20 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/plantae-tecnologies/inkpresser"
+    "url": "https://github.com/plantae-technologies/inkpresser"
   },
   "keywords": [
-    "node",
-    "node-gyp",
-    "typescript",
-    "print",
+    "printer",
+    "printing",
+    "escpos",
+    "esc-pos",
+    "thermal-printer",
+    "dot-matrix",
+    "raw-printing",
+    "cups",
+    "electron",
+    "node-addon",
+    "napi",
     "cross-platform"
   ],
   "scripts": {
