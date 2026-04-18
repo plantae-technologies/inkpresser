@@ -43,7 +43,7 @@ describe('Integration: Print System', () => {
     });
 
     it('should send a print job', async () => {
-        const fixturePath = resolve('tests/fixtures/test-print.txt');
+        const fixturePath = resolve('tests/fixtures/fast.txt');
         const fixtureContent = readFileSync(fixturePath);
 
         const documentName = `test-${Date.now()}`;

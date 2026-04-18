@@ -1,2 +1,0 @@
-Hello from inkpresser integration test.
-This file is used to verify print output matches input.
