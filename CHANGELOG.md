@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.4](https://github.com/plantae-technologies/inkpresser/compare/v1.2.3...v1.2.4) (2026-04-20)
+
+
+### Bug Fixes
+
+* add CJS shim for import.meta.url in Vite output ([20e6222](https://github.com/plantae-technologies/inkpresser/commit/20e622278eedfce2f5084d94084699b8ceee92e9))
+
 ## [1.2.3](https://github.com/plantae-technologies/inkpresser/compare/v1.2.2...v1.2.3) (2026-04-18)
 
 
