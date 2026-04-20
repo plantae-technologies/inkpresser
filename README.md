@@ -77,54 +77,141 @@ await job?.cancel();
 
 ## 📚 API Reference
 
-### `PrintManager`
+### PrintManager
 
-| Method | Returns | Description |
-|--------|---------|-------------|
-| `getPrinters()` | `Promise<Printer[]>` | Lists all available printers |
-| `getDefaultPrinter()` | `Promise<Printer>` | Returns the system default printer |
+#### Methods
 
-### `Printer`
+##### `Promise<Printer[]>` `getPrinters()`
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `name` | `string` | Printer name |
-| `isDefault` | `boolean \| null` | Whether this is the default printer |
+Lists all available printers on the system.
 
-| Method | Returns | Description |
-|--------|---------|-------------|
-| `printRaw(data, documentName)` | `Promise<number>` | Sends raw data to the printer. Returns job ID |
-| `getJobs()` | `Promise<Job[]>` | Lists all jobs for this printer |
-| `getJob(jobId)` | `Promise<Job \| null>` | Gets a job by ID, or `null` if not found |
+###### Return Value
 
-**Parameters:**
-- `data`: `Uint8Array` — raw bytes to send (ESC/POS, PCL, plain text, etc.)
-- `documentName`: `string` — document name shown in the print queue
+| Type | Description |
+|------|-------------|
+| `Promise<Printer[]>` | All printers available on the system |
 
-### `Job`
+##### `Promise<Printer>` `getDefaultPrinter()`
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `id` | `number` | Job ID |
-| `printer` | `Printer` | Printer that owns this job |
-| `document` | `string` | Document name |
-| `status` | `string` | Job status (`queued`, `printing`, `completed`, etc.) |
-| `user` | `string` | User who submitted the job |
+Returns the system default printer.
 
-| Method | Returns | Description |
-|--------|---------|-------------|
-| `cancel()` | `Promise<boolean>` | Cancels the job. Returns `true` on success |
+###### Return Value
 
-### `PrinterError`
+| Type | Description |
+|------|-------------|
+| `Promise<Printer>` | The default printer |
 
-Thrown on native printing failures. Extends `Error`.
+---
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `code` | `PrinterErrorCode` | Machine-readable error code |
-| `native` | `string \| undefined` | Underlying OS error message |
+### Printer
 
-### `PrinterErrorCode`
+#### Properties
+
+| Type | Property | Description |
+|------|----------|-------------|
+| `string` | `name` | Printer name as reported by the OS |
+| `boolean \| null` | `isDefault` | Whether this is the system default printer |
+
+#### Methods
+
+##### `Promise<number>` `printRaw(Uint8Array data, string documentName)`
+
+Sends raw bytes to the printer.
+
+###### Parameters
+
+| Type | Parameter | Description |
+|------|-----------|-------------|
+| `Uint8Array` | `data` | Raw bytes to send (ESC/POS, PCL, plain text, etc.) |
+| `string` | `documentName` | Document name shown in the print queue |
+
+###### Return Value
+
+| Type | Description |
+|------|-------------|
+| `Promise<number>` | The print job ID |
+
+##### `Promise<Job[]>` `getJobs()`
+
+Lists all jobs for this printer.
+
+###### Return Value
+
+| Type | Description |
+|------|-------------|
+| `Promise<Job[]>` | All jobs for this printer |
+
+##### `Promise<Job | null>` `getJob(number jobId)`
+
+Gets a specific job by ID, or `null` if not found.
+
+###### Parameters
+
+| Type | Parameter | Description |
+|------|-----------|-------------|
+| `number` | `jobId` | The print job ID |
+
+###### Return Value
+
+| Type | Description |
+|------|-------------|
+| `Promise<Job \| null>` | The job, or `null` if not found |
+
+---
+
+### Job
+
+#### Properties
+
+| Type | Property | Description |
+|------|----------|-------------|
+| `number` | `id` | Job ID assigned by the print system |
+| `Printer` | `printer` | The printer this job belongs to |
+| `string` | `document` | Document name |
+| `string` | `status` | Job status: `queued`, `printing`, `completed`, etc. |
+| `string` | `user` | User who submitted the job |
+
+#### Methods
+
+##### `Promise<boolean>` `cancel()`
+
+Cancels the print job.
+
+###### Return Value
+
+| Type | Description |
+|------|-------------|
+| `Promise<boolean>` | `true` if the job was cancelled successfully |
+
+---
+
+### PrinterError
+
+All native failures throw `PrinterError`, which extends `Error`.
+
+#### Properties
+
+| Type | Property | Description |
+|------|----------|-------------|
+| `PrinterErrorCode` | `code` | Machine-readable error code |
+| `string \| undefined` | `native` | Underlying OS error message |
+
+```typescript
+import { PrinterError, PrinterErrorCode } from '@plantae-tech/inkpresser';
+
+try {
+    await printer.printRaw(data, 'doc');
+} catch (err) {
+    if (err instanceof PrinterError) {
+        console.error(err.code);   // PrinterErrorCode.PRINTER_NOT_FOUND
+        console.error(err.native);  // OS-level error detail
+    }
+}
+```
+
+---
+
+### PrinterErrorCode
 
 | Code | Description |
 |------|-------------|
@@ -140,19 +227,6 @@ Thrown on native printing failures. Extends `Error`.
 | `DOCUMENT_FINISH_FAILED` | Failed to finish document |
 | `PAGE_START_FAILED` | Failed to start page |
 | `DATA_WRITE_FAILED` | Failed to write data to printer |
-
-```typescript
-import { PrinterError, PrinterErrorCode } from '@plantae-tech/inkpresser';
-
-try {
-    await printer.printRaw(data, 'doc');
-} catch (err) {
-    if (err instanceof PrinterError) {
-        console.error(err.code);   // e.g. PrinterErrorCode.PRINTER_NOT_FOUND
-        console.error(err.native);  // OS-level error detail
-    }
-}
-```
 
 ## 🧪 Manual Printer Testing
 

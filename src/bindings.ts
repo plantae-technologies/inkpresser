@@ -6,7 +6,7 @@ import { PrinterError, PrinterErrorCode } from './errors';
 const require = createRequire(import.meta.url);
 
 // node-gyp-build looks for prebuilds/ relative to the directory passed to it.
-// Since bindings.ts compiles to dist/index.js, we pass the package root (one level up).
+// Since this compiles to dist/index.{js,cjs}, we pass the package root (one level up).
 const raw = require('node-gyp-build')(join(dirname(fileURLToPath(import.meta.url)), '..'));
 
 function wrap<T>(fn: (...args: unknown[]) => T): (...args: unknown[]) => T {
