@@ -1,6 +1,6 @@
 {
   "name": "@plantae-tech/inkpresser",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "description": "Native Node.js library for managing printers and raw printing, including ESC/POS, thermal, and dot-matrix, in Node.js and Electron.",
   "type": "module",
   "main": "./dist/index.js",
