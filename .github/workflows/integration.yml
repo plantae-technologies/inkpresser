@@ -62,9 +62,13 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           echo "FileDevice Yes" | sudo tee -a /private/etc/cups/cups-files.conf
-          sudo launchctl stop org.cups.cupsd
-          sudo launchctl start org.cups.cupsd
-          sleep 2
+          sudo launchctl kickstart -k system/org.cups.cupsd
+          # wait for the scheduler to come back up already reading FileDevice=Yes,
+          # instead of a blind sleep that races lpadmin against the cupsd restart
+          for i in $(seq 1 30); do
+            if lpstat -r 2>/dev/null | grep -q running; then break; fi
+            sleep 1
+          done
           sudo lpadmin -p test-printer -E -v file:///tmp/print-output -m drv:///sample.drv/generic.ppd
           sudo cupsenable test-printer
           sudo cupsaccept test-printer
