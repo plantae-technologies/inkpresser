@@ -28,9 +28,9 @@ jobs:
             arch: arm64
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: '22'
 
@@ -42,7 +42,7 @@ jobs:
 
       - run: npx prebuildify --napi --strip --arch ${{ matrix.arch }}
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: prebuild-${{ matrix.platform }}-${{ matrix.arch }}
           path: prebuilds/
@@ -52,15 +52,15 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-native
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: '22'
 
       - run: npm ci --ignore-scripts
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: prebuild-linux-x64
           path: prebuilds/
